@@ -285,9 +285,7 @@ check-openapi:
     cd backend
     uv run python scripts/generate_schema.py --check 2>/dev/null || {
         temp=$(mktemp)
-        uv run python -c "
-import json, sys; sys.path.insert(0, '.'); from app.main import app
-print(json.dumps(app.openapi(), indent=2))" > "$temp"
+        uv run python -c "import json,sys;sys.path.insert(0,'.');from app.main import app;print(json.dumps(app.openapi(),indent=2))" > "$temp"
         if ! diff -q openapi.json "$temp" > /dev/null 2>&1; then
             echo "ERROR: openapi.json is out of date. Run 'just gen-api' to update."
             rm "$temp"
