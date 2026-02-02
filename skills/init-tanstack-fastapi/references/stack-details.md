@@ -759,24 +759,24 @@ pre-commit:
   commands:
     biome-check:
       root: "frontend/"
-      glob: "*.{ts,tsx,js,jsx,json,css}"
+      glob: "**/*.{ts,tsx,js,jsx,json,css}"
       run: bunx biome check --no-errors-on-unmatched {staged_files}
       stage_fixed: true
     tsc:
       root: "frontend/"
-      glob: "*.{ts,tsx}"
+      glob: "**/*.{ts,tsx}"
       run: bun run typecheck
     ruff-check:
       root: "backend/"
-      glob: "*.py"
+      glob: "**/*.py"
       run: uv run ruff check {staged_files}
     ruff-format:
       root: "backend/"
-      glob: "*.py"
+      glob: "**/*.py"
       run: uv run ruff format --check {staged_files}
     ty-check:
       root: "backend/"
-      glob: "*.py"
+      glob: "**/*.py"
       run: uv run ty check
 ```
 

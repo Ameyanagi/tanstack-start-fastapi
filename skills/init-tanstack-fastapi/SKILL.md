@@ -46,34 +46,39 @@ bunx --bun shadcn@latest create \
 
 After scaffolding completes:
 
-1. Remove ESLint configuration if present (the project uses Biome instead):
+1. Remove the nested git repository created by shadcn (the project uses the root-level jj/git repo):
+   ```bash
+   rm -rf frontend/.git
+   ```
+
+2. Remove ESLint configuration if present (the project uses Biome instead):
    - Delete `eslint.config.js` or `.eslintrc.*` if they exist
    - Remove `eslint`, `@eslint/*`, and `prettier` packages from `package.json` devDependencies
    - Remove any eslint/prettier scripts from `package.json`
 
-2. Install Biome:
+3. Install Biome:
    ```bash
    cd frontend && bun add -d @biomejs/biome
    ```
 
-3. Create `frontend/biome.json` with the configuration from stack-details.md section "Biome Configuration".
+4. Create `frontend/biome.json` with the configuration from stack-details.md section "Biome Configuration".
 
-4. Auto-fix the scaffolded code to conform to Biome rules (formatting, imports):
+5. Auto-fix the scaffolded code to conform to Biome rules (formatting, imports):
    ```bash
    cd frontend && bunx biome check --write --unsafe .
    ```
 
-5. Install hey-api and API client dependencies:
+6. Install hey-api and API client dependencies:
    ```bash
    cd frontend && bun add @hey-api/client-fetch zod @tanstack/react-query
    cd frontend && bun add -d @hey-api/openapi-ts vitest jsdom
    ```
 
-6. Create `frontend/openapi-ts.config.ts` with the configuration from stack-details.md section "Hey-API Configuration".
+7. Create `frontend/openapi-ts.config.ts` with the configuration from stack-details.md section "Hey-API Configuration".
 
-7. Create `frontend/vitest.config.ts` and `frontend/src/__tests__/smoke.test.ts` from stack-details.md section "Frontend Test Configuration".
+8. Create `frontend/vitest.config.ts` and `frontend/src/__tests__/smoke.test.ts` from stack-details.md section "Frontend Test Configuration".
 
-8. Merge these scripts into `frontend/package.json` (preserve existing scripts from scaffolding):
+9. Merge these scripts into `frontend/package.json` (preserve existing scripts from scaffolding):
    ```json
    {
      "scripts": {
