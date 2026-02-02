@@ -23,17 +23,17 @@ All configuration file contents for the init-tanstack-fastapi skill.
     "rules": {
       "recommended": true,
       "correctness": {
-        "noUnusedImports": "warn",
+        "noUnusedImports": "error",
         "useExhaustiveDependencies": "warn"
       },
       "style": {
         "noNonNullAssertion": "off"
       },
       "a11y": {
-        "noLabelWithoutControl": "off",
-        "useSemanticElements": "off",
-        "useKeyWithClickEvents": "off",
-        "noRedundantAlt": "off"
+        "noLabelWithoutControl": "warn",
+        "useSemanticElements": "warn",
+        "useKeyWithClickEvents": "warn",
+        "noRedundantAlt": "warn"
       },
       "suspicious": {
         "noArrayIndexKey": "off"
@@ -227,7 +227,7 @@ line-length = 100
 target-version = "py313"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "FAST"]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "FAST", "PT", "RUF", "C4"]
 ignore = ["E501"]
 
 [tool.ruff.lint.flake8-bugbear]
