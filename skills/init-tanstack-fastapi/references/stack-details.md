@@ -10,10 +10,8 @@ All configuration file contents for the init-tanstack-fastapi skill.
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.0.0/schema.json",
-  "organizeImports": {
-    "enabled": true
-  },
+  "$schema": "https://biomejs.dev/schemas/2.3.13/schema.json",
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -30,6 +28,15 @@ All configuration file contents for the init-tanstack-fastapi skill.
       },
       "style": {
         "noNonNullAssertion": "off"
+      },
+      "a11y": {
+        "noLabelWithoutControl": "off",
+        "useSemanticElements": "off",
+        "useKeyWithClickEvents": "off",
+        "noRedundantAlt": "off"
+      },
+      "suspicious": {
+        "noArrayIndexKey": "off"
       }
     }
   },
@@ -45,13 +52,20 @@ All configuration file contents for the init-tanstack-fastapi skill.
       "semicolons": "asNeeded"
     }
   },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
   "files": {
-    "ignore": [
-      "node_modules",
-      ".output",
-      ".tanstack",
-      "dist",
-      "src/client"
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/.output",
+      "!**/.tanstack",
+      "!**/dist",
+      "!**/src/client",
+      "!**/src/routeTree.gen.ts"
     ]
   }
 }
@@ -222,6 +236,7 @@ indent-style = "space"
 
 [tool.ty.rules]
 unresolved-import = "warn"
+invalid-argument-type = "warn"
 ```
 
 ---

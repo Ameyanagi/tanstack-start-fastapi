@@ -48,15 +48,20 @@ After scaffolding completes:
 
 3. Create `frontend/biome.json` with the configuration from stack-details.md section "Biome Configuration".
 
-4. Install hey-api and API client dependencies:
+4. Auto-fix the scaffolded code to conform to Biome rules (formatting, imports):
+   ```bash
+   cd frontend && bunx biome check --write --unsafe .
+   ```
+
+5. Install hey-api and API client dependencies:
    ```bash
    cd frontend && bun add @hey-api/client-fetch zod @tanstack/react-query
    cd frontend && bun add -d @hey-api/openapi-ts
    ```
 
-5. Create `frontend/openapi-ts.config.ts` with the configuration from stack-details.md section "Hey-API Configuration".
+6. Create `frontend/openapi-ts.config.ts` with the configuration from stack-details.md section "Hey-API Configuration".
 
-6. Merge these scripts into `frontend/package.json` (preserve existing scripts from scaffolding):
+7. Merge these scripts into `frontend/package.json` (preserve existing scripts from scaffolding):
    ```json
    {
      "scripts": {
