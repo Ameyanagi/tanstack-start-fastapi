@@ -415,6 +415,14 @@ test-frontend:
 test-backend:
     cd backend && uv run pytest
 
+# Serve backend API docs locally
+docs-serve:
+    cd backend && uv run mkdocs serve
+
+# Build backend API docs
+docs-build:
+    cd backend && uv run mkdocs build
+
 # Build Docker images
 docker-build:
     docker compose build
@@ -430,7 +438,7 @@ docker-down:
 # Clean generated files
 clean:
     rm -rf frontend/.output frontend/.tanstack frontend/node_modules frontend/src/client
-    rm -rf backend/.venv backend/__pycache__ backend/openapi.json
+    rm -rf backend/.venv backend/__pycache__ backend/openapi.json backend/site
 ```
 
 ---
@@ -623,7 +631,6 @@ backend/openapi.json
 .env.*.local
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -636,6 +643,12 @@ Thumbs.db
 # Caches
 .ruff_cache/
 .ty/
+
+# MkDocs
+site/
+
+# Lefthook
+.lefthook-local.yml
 ```
 
 ---
@@ -654,7 +667,9 @@ Full-stack monorepo: TanStack Start + shadcn/ui (frontend) and FastAPI (backend)
 - [Bun](https://bun.sh) >= 1.2
 - [uv](https://docs.astral.sh/uv/) >= 0.6
 - [just](https://github.com/casey/just) >= 1.0
-- [Docker](https://www.docker.com/) >= 24.0 (for production builds)
+- [jj](https://jj-vcs.github.io/jj/) >= 0.25 (colocated with git)
+- [Lefthook](https://github.com/evilmartians/lefthook) >= 1.0
+- [Docker](https://www.docker.com/) >= 24.0 (optional, for production builds)
 
 ## Quick Start
 
@@ -678,6 +693,8 @@ just test             # Run frontend + backend tests
 just fix              # Auto-fix lint and format issues
 just gen-api          # Generate API client from static schema
 just gen-api-live     # Generate API client from running server
+just docs-serve       # Serve backend API docs locally
+just docs-build       # Build backend API docs
 just docker-build     # Build Docker images
 just docker-up        # Start production stack
 just docker-down      # Stop production stack
@@ -695,6 +712,10 @@ just clean            # Remove generated files
 | Types    | tsc (frontend), ty (backend)                       |
 | Package  | Bun (frontend), uv (backend)                       |
 | Tasks    | just                                               |
+| VCS      | jj (colocated with git)                            |
+| Hooks    | Lefthook (parallel pre-commit)                     |
+| Docs     | MkDocs Material (backend API)                      |
+| CI       | GitHub Actions                                     |
 | Deploy   | Docker + docker compose                            |
 
 ## Project Structure
@@ -725,3 +746,256 @@ just gen-api-live
 
 Generated code lands in `frontend/src/client/` and includes TypeScript types, Zod schemas, and TanStack Query hooks.
 ````
+
+---
+
+## Lefthook Configuration
+
+`lefthook.yml` (project root):
+
+```yaml
+pre-commit:
+  parallel: true
+  commands:
+    biome-check:
+      root: "frontend/"
+      glob: "*.{ts,tsx,js,jsx,json,css}"
+      run: bunx biome check --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+    tsc:
+      root: "frontend/"
+      glob: "*.{ts,tsx}"
+      run: bun run typecheck
+    ruff-check:
+      root: "backend/"
+      glob: "*.py"
+      run: uv run ruff check {staged_files}
+    ruff-format:
+      root: "backend/"
+      glob: "*.py"
+      run: uv run ruff format --check {staged_files}
+    ty-check:
+      root: "backend/"
+      glob: "*.py"
+      run: uv run ty check
+```
+
+Note: `tsc` and `ty` run on the full project (not staged files) since type checkers need full context. Biome and Ruff use `{staged_files}` for speed. All commands run in parallel.
+
+---
+
+## MkDocs Configuration
+
+`backend/mkdocs.yml`:
+
+```yaml
+site_name: Backend API Documentation
+site_description: FastAPI backend API reference and guides
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - content.code.copy
+    - navigation.sections
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            show_source: true
+            show_root_heading: true
+nav:
+  - Home: index.md
+  - API Reference: api-reference.md
+```
+
+---
+
+## MkDocs Index Page
+
+`backend/docs/index.md`:
+
+```markdown
+# Backend API
+
+FastAPI backend for the project.
+
+## Quick Start
+
+```bash
+just dev-backend
+```
+
+API will be available at:
+
+- **API**: http://localhost:8000
+- **Interactive docs**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+## Project Structure
+
+```
+backend/
+├── app/
+│   ├── __init__.py
+│   ├── main.py          # FastAPI application
+│   └── routers/
+│       ├── __init__.py
+│       └── health.py    # Health check endpoint
+├── tests/
+│   ├── conftest.py      # Test fixtures
+│   └── test_health.py   # Health endpoint tests
+├── scripts/
+│   └── generate_schema.py
+├── docs/                # This documentation
+├── mkdocs.yml
+└── pyproject.toml
+```
+```
+
+---
+
+## MkDocs API Reference
+
+`backend/docs/api-reference.md`:
+
+```markdown
+# API Reference
+
+::: app.main
+    options:
+      show_root_heading: true
+      members_order: source
+
+::: app.routers.health
+    options:
+      show_root_heading: true
+      members_order: source
+```
+
+---
+
+## EditorConfig
+
+`.editorconfig` (project root):
+
+```ini
+root = true
+
+[*]
+indent_style = space
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+
+[*.{js,ts,tsx,jsx,json,css,yml,yaml}]
+indent_size = 2
+
+[*.py]
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false
+
+[justfile]
+indent_size = 4
+```
+
+---
+
+## VS Code Extensions
+
+`.vscode/extensions.json`:
+
+```json
+{
+  "recommendations": [
+    "biomejs.biome",
+    "charliermarsh.ruff",
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "bradlc.vscode-tailwindcss",
+    "martinvoelk.jj"
+  ]
+}
+```
+
+---
+
+## VS Code Settings
+
+`.vscode/settings.json`:
+
+```json
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "biomejs.biome",
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": null
+  },
+  "typescript.tsdk": "frontend/node_modules/typescript/lib",
+  "biome.lspBin": "frontend/node_modules/@biomejs/biome/bin/biome"
+}
+```
+
+---
+
+## GitHub Actions CI
+
+`.github/workflows/ci.yml`:
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: bun run typecheck
+      - run: bun run test
+
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run ty check
+      - run: uv run pytest
+```

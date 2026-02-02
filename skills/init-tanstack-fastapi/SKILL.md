@@ -15,15 +15,25 @@ For detailed configuration file contents, see [references/stack-details.md](refe
 Verify these tools are installed before proceeding:
 
 ```bash
-bun --version    # >= 1.2
-uv --version     # >= 0.6
-just --version   # >= 1.0
-docker --version # >= 24.0
+bun --version      # >= 1.2
+uv --version       # >= 0.6
+just --version     # >= 1.0
+jj --version       # >= 0.25
+lefthook --version # >= 1.0
+docker --version   # >= 24.0 (optional, for production builds)
 ```
 
-If any are missing, stop and inform the user which tools need to be installed.
+If any required tool is missing (bun, uv, just, jj, lefthook), stop and inform the user. Docker is optional — warn if missing but continue.
 
-## Step 1: Scaffold the Frontend
+## Step 1: Initialize Version Control
+
+```bash
+jj git init --colocate
+```
+
+Create `.jj/.gitignore` with content `/*` so git ignores jj metadata.
+
+## Step 2: Scaffold the Frontend
 
 Run the shadcn create command to scaffold a TanStack Start project:
 
@@ -76,7 +86,7 @@ After scaffolding completes:
    }
    ```
 
-## Step 2: Scaffold the Backend
+## Step 3: Scaffold the Backend
 
 1. Initialize a Python project with uv (pinned to Python 3.13 to match Docker images):
    ```bash
@@ -90,7 +100,7 @@ After scaffolding completes:
 
 3. Add development dependencies:
    ```bash
-   cd backend && uv add --dev ruff ty pytest httpx
+   cd backend && uv add --dev ruff ty pytest httpx mkdocs mkdocs-material "mkdocstrings[python]"
    ```
 
 4. Create the backend application structure:
@@ -121,9 +131,15 @@ After scaffolding completes:
     - `backend/tests/conftest.py`
     - `backend/tests/test_health.py`
 
-11. Remove `backend/hello.py` if it was created by `uv init` (the app now lives in `backend/app/`).
+11. Create `backend/mkdocs.yml` from stack-details.md section "MkDocs Configuration".
 
-## Step 3: Create the Root Justfile
+12. Create `backend/docs/index.md` from stack-details.md section "MkDocs Index Page".
+
+13. Create `backend/docs/api-reference.md` from stack-details.md section "MkDocs API Reference".
+
+14. Remove `backend/hello.py` if it was created by `uv init` (the app now lives in `backend/app/`).
+
+## Step 4: Create the Root Justfile
 
 Create `justfile` in the project root with the content from stack-details.md section "Justfile".
 
@@ -134,15 +150,16 @@ Key recipes:
 - `check` runs all linters, formatters, and type checkers
 - `gen-api` generates OpenAPI client from static schema
 - `gen-api-live` fetches schema from running backend server
+- `docs-serve` / `docs-build` for backend API documentation
 
-## Step 4: Create Docker Configuration
+## Step 5: Create Docker Configuration
 
 1. Create `frontend/Dockerfile` from stack-details.md section "Frontend Dockerfile".
 2. Create `backend/Dockerfile` from stack-details.md section "Backend Dockerfile".
 3. Create `docker-compose.yml` in the project root from stack-details.md section "Docker Compose".
 4. Create `frontend/.dockerignore` and `backend/.dockerignore` from stack-details.md section "Dockerignore Files".
 
-## Step 5: Create Root Configuration Files
+## Step 6: Create Root Configuration Files
 
 1. Create `.env.example` from stack-details.md section "Environment Template".
 2. Copy `.env.example` to `.env`:
@@ -151,15 +168,28 @@ Key recipes:
    ```
 3. Create `.gitignore` from stack-details.md section "Gitignore".
 4. Create `README.md` from stack-details.md section "Project README".
+5. Create `.editorconfig` from stack-details.md section "EditorConfig".
+6. Create `.vscode/extensions.json` from stack-details.md section "VS Code Extensions".
+7. Create `.vscode/settings.json` from stack-details.md section "VS Code Settings".
+8. Create `.github/workflows/ci.yml` from stack-details.md section "GitHub Actions CI".
 
-## Step 6: Generate Initial API Client
+## Step 7: Install Pre-commit Hooks
+
+1. Create `lefthook.yml` at the project root from stack-details.md section "Lefthook Configuration".
+
+2. Install the hooks:
+   ```bash
+   lefthook install
+   ```
+
+## Step 8: Generate Initial API Client
 
 ```bash
 cd backend && uv run python scripts/generate_schema.py
 cd frontend && bun run gen:api
 ```
 
-## Step 7: Verify Everything Works
+## Step 9: Verify Everything Works
 
 1. Run checks:
    ```bash
@@ -211,12 +241,24 @@ project/
 │   │   └── test_health.py
 │   ├── scripts/
 │   │   └── generate_schema.py
+│   ├── docs/
+│   │   ├── index.md
+│   │   └── api-reference.md
+│   ├── mkdocs.yml
 │   ├── pyproject.toml
 │   ├── uv.lock
 │   ├── Dockerfile
 │   └── .dockerignore
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── .vscode/
+│   ├── extensions.json
+│   └── settings.json
 ├── justfile
+├── lefthook.yml
 ├── docker-compose.yml
+├── .editorconfig
 ├── .env.example
 ├── .env
 ├── .gitignore
