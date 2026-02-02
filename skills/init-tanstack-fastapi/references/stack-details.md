@@ -119,8 +119,11 @@ cd frontend && bun add zod @tanstack/react-query @hey-api/client-fetch
 `backend/app/main.py`:
 
 ```python
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from app.routers import health
 
@@ -131,9 +134,15 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -142,9 +151,13 @@ app.add_middleware(
 app.include_router(health.router)
 
 
-@app.get("/")
+class RootResponse(BaseModel):
+    message: str
+
+
+@app.get("/", response_model=RootResponse)
 async def root():
-    return {"message": "API is running"}
+    return RootResponse(message="API is running")
 ```
 
 ---
@@ -155,13 +168,18 @@ async def root():
 
 ```python
 from fastapi import APIRouter
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/health", tags=["health"])
 
 
-@router.get("")
+class HealthResponse(BaseModel):
+    status: str
+
+
+@router.get("", response_model=HealthResponse)
 async def health_check():
-    return {"status": "healthy"}
+    return HealthResponse(status="healthy")
 ```
 
 `backend/app/__init__.py` and `backend/app/routers/__init__.py` should be empty files.
@@ -206,7 +224,7 @@ Append to `backend/pyproject.toml` after the existing content:
 ```toml
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "FAST"]
@@ -236,7 +254,80 @@ indent-style = "space"
 
 [tool.ty.rules]
 unresolved-import = "warn"
+# Suppressed: ty incorrectly flags CORSMiddleware keyword arguments.
+# Re-evaluate when ty stabilizes. https://github.com/astral-sh/ty/issues
 invalid-argument-type = "warn"
+```
+
+Also append pytest configuration:
+
+```toml
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+```
+
+---
+
+## Backend Tests
+
+`backend/tests/__init__.py`: empty file.
+
+`backend/tests/conftest.py`:
+
+```python
+import pytest
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+
+@pytest.fixture
+def client():
+    return TestClient(app)
+```
+
+`backend/tests/test_health.py`:
+
+```python
+def test_health_check(client):
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "healthy"}
+
+
+def test_root(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.json() == {"message": "API is running"}
+```
+
+---
+
+## Frontend Test Configuration
+
+`frontend/vitest.config.ts`:
+
+```typescript
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'jsdom',
+  },
+})
+```
+
+`frontend/src/__tests__/smoke.test.ts`:
+
+```typescript
+import { describe, expect, it } from 'vitest'
+
+describe('smoke test', () => {
+  it('should pass', () => {
+    expect(true).toBe(true)
+  })
+})
 ```
 
 ---
@@ -283,17 +374,14 @@ check-openapi:
     #!/usr/bin/env bash
     set -euo pipefail
     cd backend
-    uv run python scripts/generate_schema.py --check 2>/dev/null || {
-        temp=$(mktemp)
-        uv run python -c "import json,sys;sys.path.insert(0,'.');from app.main import app;print(json.dumps(app.openapi(),indent=2))" > "$temp"
-        if ! diff -q openapi.json "$temp" > /dev/null 2>&1; then
-            echo "ERROR: openapi.json is out of date. Run 'just gen-api' to update."
-            rm "$temp"
-            exit 1
-        fi
-        rm "$temp"
-        echo "OpenAPI schema is up to date."
-    }
+    temp=$(mktemp)
+    trap 'rm -f "$temp"' EXIT
+    uv run python -c "import json,sys;sys.path.insert(0,'.');from app.main import app;print(json.dumps(app.openapi(),indent=2))" > "$temp"
+    if ! diff -q openapi.json "$temp" > /dev/null 2>&1; then
+        echo "ERROR: openapi.json is out of date. Run 'just gen-api' to update."
+        exit 1
+    fi
+    echo "OpenAPI schema is up to date."
 
 # Fix lint and format issues
 fix: fix-frontend fix-backend
@@ -315,6 +403,17 @@ gen-api:
 # Generate OpenAPI client from running backend server
 gen-api-live:
     cd frontend && bunx --bun @hey-api/openapi-ts -i http://localhost:${BACKEND_PORT:-8000}/openapi.json -o src/client
+
+# Run all tests
+test: test-frontend test-backend
+
+# Run frontend tests
+test-frontend:
+    cd frontend && bun run test
+
+# Run backend tests
+test-backend:
+    cd backend && uv run pytest
 
 # Build Docker images
 docker-build:
@@ -354,10 +453,12 @@ FROM deps AS build
 COPY . .
 RUN bun run build
 
-# Production image
-FROM oven/bun:1-alpine AS runtime
+# Production image (slim over alpine to avoid musl libc issues)
+FROM oven/bun:1-slim AS runtime
 WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/.output ./.output
+COPY --from=build /app/package.json ./package.json
 ENV NODE_ENV=production
 EXPOSE 3000
 CMD ["bun", ".output/server/index.mjs"]
@@ -370,7 +471,7 @@ CMD ["bun", ".output/server/index.mjs"]
 `backend/Dockerfile`:
 
 ```dockerfile
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
@@ -389,7 +490,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 # Runtime image
-FROM python:3.12-slim-bookworm AS runtime
+FROM python:3.13-slim-bookworm AS runtime
 
 WORKDIR /app
 
@@ -424,7 +525,8 @@ services:
     environment:
       - NODE_ENV=production
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
   backend:
@@ -435,6 +537,12 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     env_file:
       - .env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 ```
 
@@ -566,6 +674,7 @@ just dev              # Run frontend + backend
 just dev-frontend     # Frontend only
 just dev-backend      # Backend only
 just check            # Lint + format + typecheck + OpenAPI validation
+just test             # Run frontend + backend tests
 just fix              # Auto-fix lint and format issues
 just gen-api          # Generate API client from static schema
 just gen-api-live     # Generate API client from running server
@@ -580,7 +689,7 @@ just clean            # Remove generated files
 | Layer    | Technology                                         |
 | -------- | -------------------------------------------------- |
 | Frontend | TanStack Start, React, shadcn/ui (Mira), Tailwind |
-| Backend  | FastAPI, Python 3.12, Pydantic                     |
+| Backend  | FastAPI, Python 3.13, Pydantic                     |
 | API      | hey-api + TanStack Query + Zod                     |
 | Lint     | Biome (frontend), Ruff (backend)                   |
 | Types    | tsc (frontend), ty (backend)                       |

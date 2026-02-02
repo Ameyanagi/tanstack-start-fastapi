@@ -56,18 +56,21 @@ After scaffolding completes:
 5. Install hey-api and API client dependencies:
    ```bash
    cd frontend && bun add @hey-api/client-fetch zod @tanstack/react-query
-   cd frontend && bun add -d @hey-api/openapi-ts
+   cd frontend && bun add -d @hey-api/openapi-ts vitest jsdom
    ```
 
 6. Create `frontend/openapi-ts.config.ts` with the configuration from stack-details.md section "Hey-API Configuration".
 
-7. Merge these scripts into `frontend/package.json` (preserve existing scripts from scaffolding):
+7. Create `frontend/vitest.config.ts` and `frontend/src/__tests__/smoke.test.ts` from stack-details.md section "Frontend Test Configuration".
+
+8. Merge these scripts into `frontend/package.json` (preserve existing scripts from scaffolding):
    ```json
    {
      "scripts": {
        "check": "biome check .",
        "check:fix": "biome check --write .",
        "typecheck": "tsc --noEmit",
+       "test": "vitest run",
        "gen:api": "bunx --bun @hey-api/openapi-ts"
      }
    }
@@ -75,9 +78,9 @@ After scaffolding completes:
 
 ## Step 2: Scaffold the Backend
 
-1. Initialize a Python project with uv:
+1. Initialize a Python project with uv (pinned to Python 3.13 to match Docker images):
    ```bash
-   uv init backend --app
+   uv init backend --app --python 3.13
    ```
 
 2. Add FastAPI and dependencies:
@@ -87,7 +90,7 @@ After scaffolding completes:
 
 3. Add development dependencies:
    ```bash
-   cd backend && uv add --dev ruff ty
+   cd backend && uv add --dev ruff ty pytest httpx
    ```
 
 4. Create the backend application structure:
@@ -111,9 +114,14 @@ After scaffolding completes:
 
 8. Write `backend/scripts/generate_schema.py` with the schema export script from stack-details.md section "Schema Generation Script".
 
-9. Append the Ruff and ty configuration to `backend/pyproject.toml` from stack-details.md section "Ruff and ty Configuration".
+9. Append the Ruff and ty configuration to `backend/pyproject.toml` from stack-details.md section "Ruff and ty Configuration" (includes pytest config).
 
-10. Remove `backend/hello.py` if it was created by `uv init` (the app now lives in `backend/app/`).
+10. Create test files from stack-details.md section "Backend Tests":
+    - `backend/tests/__init__.py` (empty)
+    - `backend/tests/conftest.py`
+    - `backend/tests/test_health.py`
+
+11. Remove `backend/hello.py` if it was created by `uv init` (the app now lives in `backend/app/`).
 
 ## Step 3: Create the Root Justfile
 
@@ -158,7 +166,12 @@ cd frontend && bun run gen:api
    just check
    ```
 
-2. Run dev servers:
+2. Run tests:
+   ```bash
+   just test
+   ```
+
+3. Run dev servers:
    ```bash
    just dev
    ```
@@ -167,7 +180,7 @@ cd frontend && bun run gen:api
    - Backend at http://localhost:8000
    - API docs at http://localhost:8000/docs
 
-3. Stop the dev servers after verification.
+4. Stop the dev servers after verification.
 
 ## Final Project Structure
 
@@ -177,9 +190,11 @@ project/
 │   ├── app/                  # TanStack Start app directory
 │   ├── public/
 │   ├── src/
+│   │   ├── __tests__/        # Frontend tests
 │   │   └── client/           # Generated API client (gitignored)
 │   ├── biome.json
 │   ├── openapi-ts.config.ts
+│   ├── vitest.config.ts
 │   ├── package.json
 │   ├── tsconfig.json
 │   ├── Dockerfile
@@ -191,6 +206,9 @@ project/
 │   │   └── routers/
 │   │       ├── __init__.py
 │   │       └── health.py
+│   ├── tests/
+│   │   ├── conftest.py
+│   │   └── test_health.py
 │   ├── scripts/
 │   │   └── generate_schema.py
 │   ├── pyproject.toml
