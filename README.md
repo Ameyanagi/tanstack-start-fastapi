@@ -5,13 +5,13 @@ An [Agent Skill](https://agentskills.io) that initializes a full-stack monorepo 
 ## Install
 
 ```bash
-npx skills add <owner>/tanstack-start-fastapi
+npx skills add Ameyanagi/tanstack-start-fastapi
 ```
 
 Or install for a specific agent:
 
 ```bash
-npx skills add <owner>/tanstack-start-fastapi -a claude-code
+npx skills add Ameyanagi/tanstack-start-fastapi -a claude-code
 ```
 
 ## Usage
